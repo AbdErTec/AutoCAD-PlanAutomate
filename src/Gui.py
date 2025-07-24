@@ -82,20 +82,25 @@ class Gui(QWidget):
                 time.sleep(2)
 
                 print("📌 'Calcul du bbox'...")
-                bbox_data_plan = utils.calculer_bbox(self.file_paths[0])
-                
+                bbox_data_plan = utils.calculer_bbox(self.file_paths[0])                
                 time.sleep(2)
+               
+                print("📌 Création du frame...")
+                data_coords= utils.creer_frame_a4(bbox_data_plan)
+                time.sleep(2)
+                
+                leg_coords = [data_coords[0], data_coords[1]]
+                table_coords = [data_coords[2], data_coords[3]]
                 print("📌 Insertion de la légende...")
-                utils.inserer_legende(self.file_paths[1], bbox_data_plan)
+                utils.inserer_legende(self.file_paths[1], bbox_data_plan, leg_coords)
                 time.sleep(2)
 
                 print("📌 Insertion des coordonnées...")
-                utils.inserer_tableau(self.file_paths[0],bbox_data_plan)
+                utils.inserer_tableau(self.file_paths[0],bbox_data_plan, table_coords)
                 time.sleep(2)
 
-
                 print("✅ Tous les composants ont été insérés avec succès.")
-                QMessageBox.warning(self, "Success", "Tous les composants ont été insérés avec succès.")
+                QMessageBox.information(self, "Success", "Tous les composants ont été insérés avec succès.")
                 sys.exit(0)
 
             except Exception as e:
@@ -108,8 +113,8 @@ class Gui(QWidget):
         # Thread-safe execution
         thread = threading.Thread(target=partie_b_thread_safe)
         thread.start()
-
         QMessageBox.information(self, "Traitement lancé", "Insertion en cours dans AutoCAD... Vous serez notifié.")
+        thread.join()
         
 def start():
     app = QApplication(sys.argv)

@@ -12,6 +12,7 @@ from win32com.client import VARIANT
 import time
 from pyautocad import Autocad, APoint
 import array
+import pyautogui
 
 
 def lire_fichier(path):
@@ -198,7 +199,7 @@ def inserer_plan(source_path, destination_doc=None):
     print("📌 Calcul du bounding box...")
 
 
-def inserer_legende(source_path, bbox_data, destination_doc=None):
+def inserer_legende(source_path, bbox_data,leg_data, destination_doc=None):
     """Insert legend based on bounding box"""
     if not bbox_data:
         print("❌ No bbox data for legend insertion")
@@ -214,14 +215,14 @@ def inserer_legende(source_path, bbox_data, destination_doc=None):
         destination_doc.Activate()
         
 
-        leg_x = bbox_data[0]
-        leg_y = bbox_data[7] + (bbox_data[7] + bbox_data[1]) 
-        insert_pt = (leg_x, leg_y, 0.0)
+        # leg_x = bbox_data[0]
+        # leg_y = bbox_data[7] + (bbox_data[7] + bbox_data[1]) 
+        insert_pt = (leg_data[0], leg_data[1], 0.0)
         
         print (f'Selection des objets avant l insertion de la legende...')
         before = [obj for obj in model]
 
-        print(f"🏷️ Inserting legend at: ({leg_x:.2f}, {leg_y:.2f})")
+        print(f"🏷️ Inserting legend at: ({leg_data[0]:.2f}, {leg_data[1]:.2f})")
         inserer_component(source_path, insert_pt, destination_doc)
         time.sleep(2)
 
@@ -256,7 +257,7 @@ def inserer_legende(source_path, bbox_data, destination_doc=None):
 
         # scale_base = APoint(legend_center_x, legend_center_y)
         time.sleep(2)
-        target_base = APoint(leg_x, leg_y)
+        # target_base = APoint(leg_x, leg_y)
         for i, obj in enumerate(legend_objects):
             try:
                 handle = obj.Handle
@@ -289,7 +290,7 @@ def inserer_legende(source_path, bbox_data, destination_doc=None):
                 destination_doc.SendCommand(f'_SELECT\n(handent "{handle}")\n\n')
                 time.sleep(0.5)
                 
-                destination_doc.SendCommand(f'_SCALE\n\n{leg_x},{leg_y}\n{scale_factor}\n')
+                destination_doc.SendCommand(f'_SCALE\n\n{leg_data[0]},{leg_data[1]}\n{scale_factor}\n')
                 time.sleep(1)
                 try:
                     destination_doc.SendCommand(
@@ -312,21 +313,15 @@ def inserer_legende(source_path, bbox_data, destination_doc=None):
         pythoncom.CoUninitialize()
 
 
-def inserer_tableau(source_file, bbox_data, destination_doc=None):
-# Pick a very obvious point for testing
-    pt = APoint(100, 100)
-
-    # ⚠️ Use clearly valid dimensions
-    rows = 4
-    cols = 3
-    row_height = 10
-    col_width = 30
+def inserer_tableau(source_file, bbox_data, table_data, destination_doc=None):
     pythoncom.CoInitialize()
+    time.sleep(1)
     try:
         app =win32com.client.GetActiveObject("AutoCAD.Application")
         destination_doc = app.ActiveDocument
         model = destination_doc.ModelSpace
         destination_doc.Activate()
+        time.sleep(1)        
         
         try:
         #1. Open the original file 
@@ -335,7 +330,7 @@ def inserer_tableau(source_file, bbox_data, destination_doc=None):
             time.sleep(1)
 
             acad_src = Autocad(create_if_not_exists = False)
-            # source_doc = acad_src.doc
+
             source_ms = acad_src.doc.ModelSpace
         #2. Find the polyline with the most area 
             max_area = 0
@@ -363,93 +358,87 @@ def inserer_tableau(source_file, bbox_data, destination_doc=None):
             destination_doc.Activate()
             time.sleep(1)
 
-            for i in range(0, len(coords), 2):
-                x = coords[i]
-                y = coords[i + 1]
-                destination_doc.SendCommand(f'_CIRCLE\n{x},{y}\n2\n')
+            # for i in range(0, len(coords), 2):
+            #     x = coords[i]
+            #     y = coords[i + 1]
+            #     destination_doc.SendCommand(f'_CIRCLE\n{x},{y}\n2\n')
             
             # return coords if outer_polyline else None
         except Exception as e:
             print(f"Erreur lors de la recuperation des bornes: {e}")
             return None
-
         time.sleep(2)
-        n_rows = (len(coords)//2) +1
+
+
+        n_rows = (len(coords)//2) +2
         n_cols = 2
-        row_height = 3.0
-        col_width = 20.0
-        table_x = bbox_data[3]
-        table_y = bbox_data[6] + (bbox_data[6] - bbox_data[4]) 
-        insert_pt = APoint(table_x, table_y)
-        table = model.AddTable(insert_pt, n_rows, n_cols, row_height, col_width)
+        row_height = 9.0
+        col_width = 120.0
+        # table_x = bbox_data[3]
+        # table_y = bbox_data[7] + (bbox_data[7] + bbox_data[1])
+        table_x = table_data[0]
+        table_y = table_data[1] 
+        # insert_pt  = APoint(table_x, table_y)
+        destination_doc.SendCommand(f'_CIRCLE\n{table_x},{table_y}\n2\n')
 
-        # Set headers
-        table.SetText(0, 0, "X")
-        table.SetText(0, 1, "Y")
+        # insert_pt = APoint(table_x, table_y)
+        # destination_doc.SendCommand(f'_-TABLE {insert_pt} {n_cols} {n_rows} {row_height} {col_width}\n')
+        
+        time.sleep(0.5)
 
-        # Fill coordinates
-        point_index = 0
-        for r in range(1, n_rows):
-            if point_index * 2 + 1 >= len(coords):
-                break
-            x = coords[point_index * 2]
-            y = coords[point_index * 2 + 1]
-            table.SetText(r, 0, f"{x:.2f}")
-            table.SetText(r, 1, f"{y:.2f}")
-            point_index += 1
+
+        pt = VARIANT(pythoncom.VT_ARRAY | pythoncom.VT_R8, array.array('d', [table_x, table_y, 0.0]))
+        table = model.AddTable(pt, n_rows, n_cols, row_height, col_width)
+        time.sleep(0.5)
+        # table.Title = "Tableau des coordonnees"
+        # time.sleep(0.5)
+
+        table.SetText(0, 0, 'Tableau des coordonnees')
+        time.sleep(0.5)
+        table.SetText(1, 0, 'X')
+        time.sleep(0.5)
+        table.SetText(1, 1, 'Y')
+        # print ({len(coords)})
+        for i in range(n_rows-2):
+            table.SetText(i+2, 0, f'{coords[i * 2 ]:.2f}')
+            table.SetText(i+2, 1, f'{coords[i * 2 + 1]:.2f}') 
 
         print("✅ Table inserted successfully.")
+        plan_width, plan_height = get_dimensions(bbox_data)
+        table_width = col_width * n_cols
+        target_width = plan_width * 0.8
+        scale_factor = target_width / table_width
+        print(f"✅ Scale factor: {scale_factor}")
+
+        bounds = table.GetBoundingBox()
+        center_x = (bounds[0][0] + bounds[1][0]) / 2
+        center_y = (bounds[0][1] + bounds[1][1]) / 2
+        for obj in model:
+            if obj.ObjectName == 'AcDbTable':
+                handle = obj.Handle
+                break
+        try:
+            
+            destination_doc.SendCommand(f'_SELECT\n(handent "{handle}")\n\n')
+            time.sleep(0.5)
+                
+            destination_doc.SendCommand(f'_SCALE\n\n{table_data[0]},{table_data[1]}\n{scale_factor}\n')
+            time.sleep(1)
+
+            print ("✅ Table scaled successfully.")
+        except Exception as e:
+            print(f"💥 Table scaling error: {e}")
+
+        time.sleep(1)
+
+        destination_doc.sendcommand('_AI_SELALL\n')
+        time.sleep(0.5)
+        destination_doc.SendCommand('_ZOOM\nE\n')
+
     except Exception as e:
-        print(f"💥 Table test error: {e}")
+        print(f"💥 Table error: {e}")
     finally:
         pythoncom.CoUninitialize()
-
-
-#     pythoncom.CoInitialize()
-#     try:
-#         if destination_doc is None:
-#             app = win32com.client.GetActiveObject("AutoCAD.Application")
-#             destination_doc = app.ActiveDocument
-#             print(f'📄 Active Document: {app.ActiveDocument}')
-#             model = destination_doc.ModelSpace
-#         time.sleep(3)
-#         destination_doc.Activate()
-        
-#         table_x = bbox_data[3]
-#         table_y = bbox_data[7] + (bbox_data[7] + bbox_data[1]) 
-#         insert_pt = APoint(table_x, table_y)
-
-#         #fetch rows number + data from original file
-#         print(f"tableau coordonnees: {insert_pt}")
-
-
-
-
-#         # destination_doc.SendCommand(f'_CIRCLE\n{table_x},{table_y}\n4\n')
-#         table = model.AddTable(insert_pt, n_rows, n_cols, row_height, col_width)
-#         table.TitleSuppressed = False
-#         table.SetText(0, 0, "Tableau des coordonnées")
-
-#         # Fill the cells
-#         for row in range(1, 4):  # row 0 is usually title/header
-#             for col in range(3):
-#                 cell_text = f"Row{row} Col{col}"
-#                 table.SetText(row, col, "blabla")
-
-# #         # Position table at right side of bbox
-# #         table_x = bbox_data['max_x'] + bbox_data['width'] * 0.1
-# #         table_y = bbox_data['center_y']
-        
-# #         print(f"📊 Coordinate table position: ({table_x:.2f}, {table_y:.2f})")
-# #         # Here you would insert your coordinate table
-# #         # return inserer_component(table_source_path, (table_x, table_y, 0), destination_doc)
-# #         return True
-        
-#     except Exception as e:
-#         print(f"💥 Table insertion error: {e}")
-#         return False
-#     finally:
-#         pythoncom.CoUninitialize()
 
 
 # def inserer_boussole(bbox_data, destination_doc=None):
@@ -480,15 +469,17 @@ def creer_frame_a4(bbox_data, destination_doc=None):
         
     try:
         acad = Autocad()
+        doc = acad.doc
         model = acad.doc.ModelSpace
         
-        # Frame size: 3 times the content size
-        frame_width = 3 * bbox_data['width']
-        frame_height = 3 * bbox_data['height']
+        # Frame size: 3 times the content size 
+
+        frame_width = 3 * (bbox_data[3] - bbox_data[0])
+        frame_height = 3 * (bbox_data[7] - bbox_data[1])
         
         # Center frame around content
-        center_x = bbox_data['center_x']
-        center_y = bbox_data['center_y']
+        center_x = (bbox_data[3] + bbox_data[0]) /2
+        center_y = (bbox_data[7] + bbox_data[1]) /2
          
         min_x = center_x - frame_width / 2
         min_y = center_y - frame_height / 2
@@ -503,12 +494,23 @@ def creer_frame_a4(bbox_data, destination_doc=None):
             min_x, min_y, 0.0
         ])
         
-        frame = model.AddPolyline(frame_points)
-        frame.Closed = True
-        frame.color = 7  # White
+        # frame = model.AddPolyline(frame_points)
+        # frame.Closed = True
+        # frame.color = 7  # White
         
         print(f"🖼️ A4 Frame created: {frame_width:.2f} x {frame_height:.2f}")
-        return True
+        y = (center_y + max_y) / 2
+        x1 = (min_x + center_x) / 2
+        leg_x = (x1 + min_x) / 2
+        leg_y = (y + max_y) / 2
+
+        x2 = (center_x + max_x) / 2
+        table_x = (x2 + max_x) / 2
+        table_y = (y + max_y) / 2
+
+        doc.SendCommand(f'_CIRCLE\n{leg_x},{leg_y}\n2\n')
+        doc.SendCommand(f'_CIRCLE\n{table_x},{table_y}\n2\n')
+        return leg_x, leg_y, table_x, table_y
         
     except Exception as e:
         print(f"💥 Frame creation error: {e}")
