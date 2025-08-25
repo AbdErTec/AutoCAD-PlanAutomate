@@ -1,0 +1,11 @@
+/build/
+/dist/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+.venv/
+venv/
+.DS_Store
+Thumbs.db
